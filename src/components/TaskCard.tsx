@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { StyleSheet, View, Text, Animated } from 'react-native';
 import { Task, Priority, Category } from '../types/task';
 import { useDispatch } from 'react-redux';
 import { toggleTaskCompletion, deleteTask } from '../store/taskSlice';
+import { taskCompleted } from '../store/userStatsSlice';
 import { Swipeable } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 interface TaskCardProps {
   task: Task;
@@ -29,6 +31,15 @@ const getPriorityColor = (priority: Priority) => {
 
 export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
   const dispatch = useDispatch();
+  const confettiRef = useRef<any>(null);
+
+  const handleTaskCompletion = () => {
+    if (!task.isCompleted) {
+      dispatch(taskCompleted());
+      confettiRef.current?.start();
+    }
+    dispatch(toggleTaskCompletion(task.id));
+  };
 
   const renderRightActions = (
     progress: Animated.AnimatedInterpolation<number>,
@@ -69,34 +80,44 @@ export const TaskCard: React.FC<TaskCardProps> = ({ task, onEdit }) => {
   };
 
   return (
-    <Swipeable
-      renderRightActions={renderRightActions}
-      renderLeftActions={renderLeftActions}
-      onSwipeableRightOpen={() => dispatch(deleteTask(task.id))}
-      onSwipeableLeftOpen={() => dispatch(toggleTaskCompletion(task.id))}
-    >
-      <Animated.View style={[styles.container, task.isCompleted && styles.completedTask]}>
-        <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(task.priority) }]} />
-        <View style={styles.content}>
-          <Text style={[styles.title, task.isCompleted && styles.completedText]}>{task.title}</Text>
-          {task.description && (
-            <Text style={[styles.description, task.isCompleted && styles.completedText]} numberOfLines={2}>
-              {task.description}
-            </Text>
-          )}
-          <View style={styles.footer}>
-            <View style={styles.categoryContainer}>
-              <Text style={styles.category}>{task.category}</Text>
-            </View>
-            {task.dueDate && (
-              <Text style={styles.dueDate}>
-                Due: {format(new Date(task.dueDate), 'MMM d, yyyy h:mm a')}
+    <>
+      <Swipeable
+        renderRightActions={renderRightActions}
+        renderLeftActions={renderLeftActions}
+        onSwipeableRightOpen={() => dispatch(deleteTask(task.id))}
+        onSwipeableLeftOpen={handleTaskCompletion}
+      >
+        <Animated.View style={[styles.container, task.isCompleted && styles.completedTask]}>
+          <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(task.priority) }]} />
+          <View style={styles.content}>
+            <Text style={[styles.title, task.isCompleted && styles.completedText]}>{task.title}</Text>
+            {task.description && (
+              <Text style={[styles.description, task.isCompleted && styles.completedText]} numberOfLines={2}>
+                {task.description}
               </Text>
             )}
+            <View style={styles.footer}>
+              <View style={styles.categoryContainer}>
+                <Text style={styles.category}>{task.category}</Text>
+              </View>
+              {task.dueDate && (
+                <Text style={styles.dueDate}>
+                  Due: {format(new Date(task.dueDate), 'MMM d, yyyy h:mm a')}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
-      </Animated.View>
-    </Swipeable>
+        </Animated.View>
+      </Swipeable>
+      <ConfettiCannon
+        ref={confettiRef}
+        autoStart={false}
+        count={50}
+        origin={{ x: -10, y: 0 }}
+        fadeOut={true}
+        explosionSpeed={350}
+      />
+    </>
   );
 };
 
