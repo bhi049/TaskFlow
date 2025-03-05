@@ -1,27 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  FlatList,
-  TouchableOpacity,
   Modal,
   Text,
-  Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store/store';
 import { TaskCard } from '../components/TaskCard';
 import { TaskForm } from '../components/TaskForm';
 import { Task } from '../types/task';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { selectTasks } from '../store/taskSlice';
+import { selectTasks, reorderTasks } from '../store/taskSlice';
+import DraggableFlatList, { 
+  RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
+import * as Haptics from 'expo-haptics';
 
 export const TaskListScreen: React.FC = () => {
   const tasks = useSelector(selectTasks);
+  const dispatch = useDispatch();
   const [isFormVisible, setIsFormVisible] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | undefined>();
-  const [fadeAnim] = useState(new Animated.Value(1));
 
   const handleEditTask = (task: Task) => {
     setSelectedTask(task);
@@ -32,6 +35,31 @@ export const TaskListScreen: React.FC = () => {
     setIsFormVisible(false);
     setSelectedTask(undefined);
   };
+
+  const renderItem = useCallback(({ item, drag, isActive }: RenderItemParams<Task>) => {
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          onLongPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            drag();
+          }}
+          disabled={isActive}
+        >
+          <TaskCard
+            task={item}
+            onEdit={() => handleEditTask(item)}
+            isBeingDragged={isActive}
+          />
+        </TouchableOpacity>
+      </ScaleDecorator>
+    );
+  }, []);
+
+  const handleDragEnd = useCallback(({ data }: { data: Task[] }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    dispatch(reorderTasks(data));
+  }, [dispatch]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -45,17 +73,16 @@ export const TaskListScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        <FlatList
+      <View style={styles.content}>
+        <DraggableFlatList
           data={tasks}
+          onDragEnd={handleDragEnd}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TaskCard task={item} onEdit={() => handleEditTask(item)} />
-          )}
+          renderItem={renderItem}
           contentContainerStyle={tasks.length === 0 && styles.emptyList}
           ListEmptyComponent={renderEmptyState}
         />
-      </Animated.View>
+      </View>
 
       <TouchableOpacity
         style={styles.fab}

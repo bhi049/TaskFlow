@@ -13,6 +13,20 @@ export enum Category {
   OTHER = 'OTHER'
 }
 
+export enum RecurrenceType {
+  NONE = 'NONE',
+  DAILY = 'DAILY',
+  WEEKLY = 'WEEKLY',
+  MONTHLY = 'MONTHLY'
+}
+
+export interface RecurrenceInfo {
+  type: RecurrenceType;
+  streak: number;
+  lastCompletedDate: string | null;
+  nextDueDate: string | null;
+}
+
 export interface SerializableTask {
   id: string;
   title: string;
@@ -23,10 +37,12 @@ export interface SerializableTask {
   isCompleted: boolean;
   createdAt: string;
   updatedAt: string;
+  recurrence?: RecurrenceInfo;
 }
 
 export interface Task extends Omit<SerializableTask, 'dueDate' | 'createdAt' | 'updatedAt'> {
   dueDate?: Date;
   createdAt: Date;
   updatedAt: Date;
+  recurrence?: RecurrenceInfo;
 } 

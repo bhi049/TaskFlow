@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addTask, updateTask } from '../store/taskSlice';
-import { Task, Priority, Category } from '../types/task';
+import { Task, Priority, Category, RecurrenceType } from '../types/task';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -29,6 +29,9 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
   const [dueDate, setDueDate] = useState<Date | undefined>(
     task?.dueDate ? new Date(task.dueDate) : undefined
   );
+  const [recurrenceType, setRecurrenceType] = useState<RecurrenceType>(
+    task?.recurrence?.type || RecurrenceType.NONE
+  );
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleSubmit = () => {
@@ -45,6 +48,14 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
       isCompleted: task?.isCompleted || false,
       createdAt: (task?.createdAt ? new Date(task.createdAt) : now).toISOString(),
       updatedAt: now.toISOString(),
+      recurrence: recurrenceType !== RecurrenceType.NONE
+        ? {
+            type: recurrenceType,
+            streak: task?.recurrence?.streak || 0,
+            lastCompletedDate: task?.recurrence?.lastCompletedDate || null,
+            nextDueDate: dueDate?.toISOString() || null,
+          }
+        : undefined,
     };
 
     if (task) {
@@ -73,6 +84,17 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
     >
       <Text style={[styles.chipText, category === value && styles.selectedChipText]}>
         {value}
+      </Text>
+    </TouchableOpacity>
+  );
+
+  const renderRecurrenceButton = (value: RecurrenceType) => (
+    <TouchableOpacity
+      style={[styles.chip, recurrenceType === value && styles.selectedChip]}
+      onPress={() => setRecurrenceType(value)}
+    >
+      <Text style={[styles.chipText, recurrenceType === value && styles.selectedChipText]}>
+        {value === RecurrenceType.NONE ? 'One-time' : value}
       </Text>
     </TouchableOpacity>
   );
@@ -114,7 +136,16 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
         ))}
       </View>
 
-      <Text style={styles.label}>Due Date (optional)</Text>
+      <Text style={styles.label}>Recurrence</Text>
+      <View style={styles.chipContainer}>
+        {Object.values(RecurrenceType).map((r) => (
+          <React.Fragment key={r}>
+            {renderRecurrenceButton(r)}
+          </React.Fragment>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Due Date {recurrenceType !== RecurrenceType.NONE ? '(First Occurrence)' : '(Optional)'}</Text>
       <TouchableOpacity
         style={styles.dateButton}
         onPress={() => setShowDatePicker(true)}
