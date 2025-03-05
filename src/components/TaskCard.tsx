@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Animated as RNAnimated } from 'react-native';
-import { Task, Priority, Category, RecurrenceType } from '../types/task';
+import { Task, Priority, Category, RecurrenceType, SubTask } from '../types/task';
 import { useDispatch } from 'react-redux';
-import { toggleTaskCompletion, deleteTask } from '../store/taskSlice';
+import { toggleTaskCompletion, deleteTask, updateTask } from '../store/taskSlice';
 import { taskCompleted } from '../store/userStatsSlice';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import Animated, {
   runOnJS,
   useSharedValue,
 } from 'react-native-reanimated';
+import { SubTaskList } from './SubTaskList';
 
 interface TaskCardProps {
   task: Task;
@@ -59,6 +60,18 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const dispatch = useDispatch();
   const scale = useSharedValue(1);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const completedSubtasks = task.subtasks.filter(subtask => subtask.isCompleted).length;
+  const totalSubtasks = task.subtasks.length;
+  const progress = totalSubtasks > 0 ? (completedSubtasks / totalSubtasks) * 100 : 0;
+
+  useEffect(() => {
+    // Auto-complete task when all subtasks are completed
+    if (totalSubtasks > 0 && completedSubtasks === totalSubtasks && !task.isCompleted) {
+      handleTaskCompletion();
+    }
+  }, [completedSubtasks, totalSubtasks]);
 
   const animatedStyles = useAnimatedStyle(() => {
     return {
@@ -80,6 +93,59 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       dispatch(taskCompleted());
     }
     dispatch(toggleTaskCompletion(task.id));
+  };
+
+  const handleToggleSubTask = (subtaskId: string) => {
+    const updatedSubtasks = task.subtasks.map(subtask =>
+      subtask.id === subtaskId
+        ? { ...subtask, isCompleted: !subtask.isCompleted, updatedAt: new Date() }
+        : subtask
+    );
+
+    dispatch(updateTask({
+      ...task,
+      dueDate: task.dueDate?.toISOString(),
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: new Date().toISOString(),
+      subtasks: updatedSubtasks.map(st => ({
+        ...st,
+        dueDate: st.dueDate?.toISOString(),
+        createdAt: st.createdAt.toISOString(),
+        updatedAt: st.updatedAt.toISOString(),
+      })),
+    }));
+  };
+
+  const handleDeleteSubTask = (subtaskId: string) => {
+    const updatedSubtasks = task.subtasks.filter(subtask => subtask.id !== subtaskId);
+    
+    dispatch(updateTask({
+      ...task,
+      dueDate: task.dueDate?.toISOString(),
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: new Date().toISOString(),
+      subtasks: updatedSubtasks.map(st => ({
+        ...st,
+        dueDate: st.dueDate?.toISOString(),
+        createdAt: st.createdAt.toISOString(),
+        updatedAt: st.updatedAt.toISOString(),
+      })),
+    }));
+  };
+
+  const handleReorderSubTasks = (newSubtasks: SubTask[]) => {
+    dispatch(updateTask({
+      ...task,
+      dueDate: task.dueDate?.toISOString(),
+      createdAt: task.createdAt.toISOString(),
+      updatedAt: new Date().toISOString(),
+      subtasks: newSubtasks.map(st => ({
+        ...st,
+        dueDate: st.dueDate?.toISOString(),
+        createdAt: st.createdAt.toISOString(),
+        updatedAt: st.updatedAt.toISOString(),
+      })),
+    }));
   };
 
   const renderRightActions = (
@@ -163,47 +229,77 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             ]}
           >
             <View style={[styles.priorityIndicator, { backgroundColor: getPriorityColor(task.priority) }]} />
-            <TouchableOpacity 
-              style={styles.content}
-              onLongPress={async () => {
-                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onEdit(task);
-              }}
-              delayLongPress={500}
-            >
-              <View style={styles.header}>
-                <Text style={[styles.title, task.isCompleted && styles.completedText]}>{task.title}</Text>
-                {task.recurrence && (
-                  <View style={styles.recurrenceContainer}>
-                    <MaterialCommunityIcons 
-                      name={getRecurrenceIcon(task.recurrence.type)} 
-                      size={16} 
-                      color="#666" 
-                    />
-                    {task.recurrence.streak > 0 && (
-                      <View style={styles.streakBadge}>
-                        <Text style={styles.streakText}>{task.recurrence.streak}🔥</Text>
+            <View style={styles.content}>
+              <TouchableOpacity 
+                style={styles.mainContent}
+                onPress={() => setIsExpanded(!isExpanded)}
+                onLongPress={async () => {
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onEdit(task);
+                }}
+                delayLongPress={500}
+              >
+                <View style={styles.header}>
+                  <Text style={[styles.title, task.isCompleted && styles.completedText]}>{task.title}</Text>
+                  <View style={styles.headerRight}>
+                    {task.recurrence && (
+                      <View style={styles.recurrenceContainer}>
+                        <MaterialCommunityIcons 
+                          name={getRecurrenceIcon(task.recurrence.type)} 
+                          size={16} 
+                          color="#666" 
+                        />
+                        {task.recurrence.streak > 0 && (
+                          <View style={styles.streakBadge}>
+                            <Text style={styles.streakText}>{task.recurrence.streak}🔥</Text>
+                          </View>
+                        )}
                       </View>
                     )}
+                    {totalSubtasks > 0 && (
+                      <View style={styles.subtaskCounter}>
+                        <Text style={styles.subtaskCounterText}>
+                          {completedSubtasks}/{totalSubtasks}
+                        </Text>
+                      </View>
+                    )}
+                    <MaterialCommunityIcons
+                      name={isExpanded ? "chevron-up" : "chevron-down"}
+                      size={24}
+                      color="#666"
+                    />
                   </View>
-                )}
-              </View>
-              {task.description && (
-                <Text style={[styles.description, task.isCompleted && styles.completedText]} numberOfLines={2}>
-                  {task.description}
-                </Text>
-              )}
-              <View style={styles.footer}>
-                <View style={styles.categoryContainer}>
-                  <Text style={styles.category}>{task.category}</Text>
                 </View>
-                {task.dueDate && (
-                  <Text style={styles.dueDate}>
-                    Due: {format(task.dueDate, 'MMM d, yyyy h:mm a')}
+                {task.description && (
+                  <Text style={[styles.description, task.isCompleted && styles.completedText]} numberOfLines={2}>
+                    {task.description}
                   </Text>
                 )}
-              </View>
-            </TouchableOpacity>
+                <View style={styles.footer}>
+                  <View style={styles.categoryContainer}>
+                    <Text style={styles.category}>{task.category}</Text>
+                  </View>
+                  {task.dueDate && (
+                    <Text style={styles.dueDate}>
+                      Due: {format(task.dueDate, 'MMM d, yyyy h:mm a')}
+                    </Text>
+                  )}
+                </View>
+                {totalSubtasks > 0 && (
+                  <View style={styles.progressBarContainer}>
+                    <View style={[styles.progressBar, { width: `${progress}%` }]} />
+                  </View>
+                )}
+              </TouchableOpacity>
+              {isExpanded && task.subtasks.length > 0 && (
+                <SubTaskList
+                  subtasks={task.subtasks}
+                  onToggleSubTask={handleToggleSubTask}
+                  onDeleteSubTask={handleDeleteSubTask}
+                  onReorderSubTasks={handleReorderSubTasks}
+                />
+              )}
+            </View>
           </Animated.View>
         </Swipeable>
       </Animated.View>
@@ -334,5 +430,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FF8C00',
     fontWeight: '600',
+  },
+  mainContent: {
+    flex: 1,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subtaskCounter: {
+    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  subtaskCounterText: {
+    fontSize: 12,
+    color: '#666',
+    fontWeight: '500',
+  },
+  progressBarContainer: {
+    height: 2,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 1,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#00C851',
+    borderRadius: 1,
   },
 }); 

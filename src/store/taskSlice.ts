@@ -20,6 +20,12 @@ export const selectTasks = createSelector(
     dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
     createdAt: new Date(task.createdAt),
     updatedAt: new Date(task.updatedAt),
+    subtasks: task.subtasks.map(subtask => ({
+      ...subtask,
+      dueDate: subtask.dueDate ? new Date(subtask.dueDate) : undefined,
+      createdAt: new Date(subtask.createdAt),
+      updatedAt: new Date(subtask.updatedAt),
+    })),
   }))
 );
 
@@ -61,6 +67,12 @@ const updateRecurringTask = (task: SerializableTask): SerializableTask => {
         streak: task.recurrence.streak + 1,
         nextDueDate: nextDueDate.toISOString(),
       },
+      // Reset subtasks completion state
+      subtasks: task.subtasks.map(subtask => ({
+        ...subtask,
+        isCompleted: false,
+        updatedAt: currentDate.toISOString(),
+      })),
     };
   } else if (lastCompletedDate) {
     // Task was completed, but not on the due date - break the streak
@@ -74,6 +86,12 @@ const updateRecurringTask = (task: SerializableTask): SerializableTask => {
         streak: 0,
         nextDueDate: nextDueDate.toISOString(),
       },
+      // Reset subtasks completion state
+      subtasks: task.subtasks.map(subtask => ({
+        ...subtask,
+        isCompleted: false,
+        updatedAt: currentDate.toISOString(),
+      })),
     };
   }
 
@@ -109,6 +127,13 @@ export const taskSlice = createSlice({
         task.isCompleted = true;
         task.updatedAt = now.toISOString();
         
+        // Complete all subtasks when completing the main task
+        task.subtasks = task.subtasks.map(subtask => ({
+          ...subtask,
+          isCompleted: true,
+          updatedAt: now.toISOString(),
+        }));
+        
         if (task.recurrence) {
           task.recurrence.lastCompletedDate = now.toISOString();
           // The task will be reset in the next step
@@ -130,6 +155,12 @@ export const taskSlice = createSlice({
         dueDate: task.dueDate?.toISOString(),
         createdAt: task.createdAt.toISOString(),
         updatedAt: task.updatedAt.toISOString(),
+        subtasks: task.subtasks.map(subtask => ({
+          ...subtask,
+          dueDate: subtask.dueDate?.toISOString(),
+          createdAt: subtask.createdAt.toISOString(),
+          updatedAt: subtask.updatedAt.toISOString(),
+        })),
       }));
     },
   },

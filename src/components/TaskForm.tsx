@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useDispatch } from 'react-redux';
 import { addTask, updateTask } from '../store/taskSlice';
-import { Task, Priority, Category, RecurrenceType } from '../types/task';
+import { Task, Priority, Category, RecurrenceType, SubTask } from '../types/task';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -33,6 +33,32 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
     task?.recurrence?.type || RecurrenceType.NONE
   );
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [subtasks, setSubtasks] = useState<SubTask[]>(task?.subtasks || []);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [subtaskDueDate, setSubtaskDueDate] = useState<Date | undefined>();
+  const [showSubtaskDatePicker, setShowSubtaskDatePicker] = useState(false);
+
+  const handleAddSubtask = () => {
+    if (!newSubtaskTitle.trim()) return;
+
+    const now = new Date();
+    const newSubtask: SubTask = {
+      id: Date.now().toString(),
+      title: newSubtaskTitle.trim(),
+      isCompleted: false,
+      dueDate: subtaskDueDate,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    setSubtasks([...subtasks, newSubtask]);
+    setNewSubtaskTitle('');
+    setSubtaskDueDate(undefined);
+  };
+
+  const handleDeleteSubtask = (subtaskId: string) => {
+    setSubtasks(subtasks.filter(st => st.id !== subtaskId));
+  };
 
   const handleSubmit = () => {
     if (!title.trim()) return;
@@ -56,6 +82,12 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
             nextDueDate: dueDate?.toISOString() || null,
           }
         : undefined,
+      subtasks: subtasks.map(st => ({
+        ...st,
+        dueDate: st.dueDate?.toISOString(),
+        createdAt: st.createdAt.toISOString(),
+        updatedAt: st.updatedAt.toISOString(),
+      })),
     };
 
     if (task) {
@@ -170,6 +202,68 @@ export const TaskForm: React.FC<TaskFormProps> = ({ task, onClose }) => {
         />
       )}
 
+      <Text style={[styles.label, styles.subtasksLabel]}>Subtasks</Text>
+      <View style={styles.subtaskInputContainer}>
+        <TextInput
+          style={styles.subtaskInput}
+          placeholder="Add a subtask"
+          value={newSubtaskTitle}
+          onChangeText={setNewSubtaskTitle}
+          placeholderTextColor="#666"
+          onSubmitEditing={handleAddSubtask}
+        />
+        <TouchableOpacity
+          style={styles.subtaskDateButton}
+          onPress={() => setShowSubtaskDatePicker(true)}
+        >
+          <MaterialCommunityIcons
+            name="calendar"
+            size={24}
+            color={subtaskDueDate ? '#007AFF' : '#666'}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.addSubtaskButton, !newSubtaskTitle.trim() && styles.addSubtaskButtonDisabled]}
+          onPress={handleAddSubtask}
+          disabled={!newSubtaskTitle.trim()}
+        >
+          <MaterialCommunityIcons name="plus" size={24} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {showSubtaskDatePicker && (
+        <DateTimePicker
+          value={subtaskDueDate || new Date()}
+          mode="datetime"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(event: any, selectedDate?: Date) => {
+            setShowSubtaskDatePicker(false);
+            if (selectedDate) {
+              setSubtaskDueDate(selectedDate);
+            }
+          }}
+        />
+      )}
+
+      {subtasks.map((subtask, index) => (
+        <View key={subtask.id} style={styles.subtaskItem}>
+          <View style={styles.subtaskContent}>
+            <Text style={styles.subtaskTitle}>{subtask.title}</Text>
+            {subtask.dueDate && (
+              <Text style={styles.subtaskDueDate}>
+                Due: {format(subtask.dueDate, 'MMM d, yyyy')}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            style={styles.deleteSubtaskButton}
+            onPress={() => handleDeleteSubtask(subtask.id)}
+          >
+            <MaterialCommunityIcons name="close" size={20} color="#666" />
+          </TouchableOpacity>
+        </View>
+      ))}
+
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
           <Text style={styles.buttonText}>Cancel</Text>
@@ -274,5 +368,60 @@ const styles = StyleSheet.create({
   },
   submitButtonText: {
     color: 'white',
+  },
+  subtasksLabel: {
+    marginTop: 16,
+  },
+  subtaskInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  subtaskInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginRight: 8,
+  },
+  subtaskDateButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  addSubtaskButton: {
+    backgroundColor: '#007AFF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addSubtaskButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  subtaskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  subtaskContent: {
+    flex: 1,
+  },
+  subtaskTitle: {
+    fontSize: 14,
+    color: '#333',
+  },
+  subtaskDueDate: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  deleteSubtaskButton: {
+    padding: 4,
   },
 }); 
