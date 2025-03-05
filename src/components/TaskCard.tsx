@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Animated as RNAnimated } from 'react-native';
 import { Task, Priority, Category, RecurrenceType } from '../types/task';
 import { useDispatch } from 'react-redux';
@@ -7,7 +7,6 @@ import { taskCompleted } from '../store/userStatsSlice';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import ConfettiCannon from 'react-native-confetti-cannon';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useAnimatedStyle,
@@ -59,7 +58,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   isBeingDragged = false 
 }) => {
   const dispatch = useDispatch();
-  const confettiRef = useRef<any>(null);
   const scale = useSharedValue(1);
 
   const animatedStyles = useAnimatedStyle(() => {
@@ -68,23 +66,15 @@ export const TaskCard: React.FC<TaskCardProps> = ({
     };
   });
 
-  const triggerConfetti = useCallback(() => {
-    if (confettiRef.current) {
-      confettiRef.current.start();
-    }
-  }, []);
-
   const handleTaskCompletion = async () => {
     if (!task.isCompleted) {
       // Trigger haptic feedback
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
-      // Animate scale and trigger confetti
+      // Animate scale
       scale.value = withSequence(
         withSpring(1.1, { damping: 12, stiffness: 200 }),
-        withSpring(1, { damping: 12, stiffness: 200 }, () => {
-          runOnJS(triggerConfetti)();
-        })
+        withSpring(1, { damping: 12, stiffness: 200 })
       );
 
       dispatch(taskCompleted());
@@ -217,14 +207,6 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </Animated.View>
         </Swipeable>
       </Animated.View>
-      <ConfettiCannon
-        ref={confettiRef}
-        autoStart={false}
-        count={50}
-        origin={{ x: -10, y: 0 }}
-        fadeOut={true}
-        explosionSpeed={350}
-      />
     </GestureHandlerRootView>
   );
 };
